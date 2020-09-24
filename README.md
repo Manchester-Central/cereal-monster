@@ -4,8 +4,8 @@ Sourcecode for a robot that eats cereal boxes
 
 | Pin | Purpose |
 | --- | --- |
-| Digital 0 |  |
-| Digital 1 |  |
+| Digital 0 | Serial RX |
+| Digital 1 | Serial TX |
 | Digital 2 |  |
 | Digital 3 | Music Maker shield - "DREQ" Interrupt |
 | Digital 4 | Music Maker shield - SD Card "CCS" SPI chip select |
@@ -18,7 +18,7 @@ Sourcecode for a robot that eats cereal boxes
 | Digital 11 | SPI MOSI - Music Maker shield |
 | Digital 12 | SPI MISO - Music Maker shield |
 | Digital 13 | SPI CLK - Music Maker shield |
-| Analog 0 | Photosensor In |
+| Analog 0 | Light sensor In |
 | Analog 1 |  |
 | Analog 2 |  |
 | Analog 3 |  |
