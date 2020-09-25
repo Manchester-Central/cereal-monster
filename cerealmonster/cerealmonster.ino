@@ -3,11 +3,13 @@
  #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
 
+#include <Servo.h>
+
 #include <SPI.h>
 #include <Adafruit_VS1053.h>
 #include <SD.h>
 
-// AdaFruit MusicMaker mp3 player shield
+// AdaFruit MusicMaker mp3 player sheild
 #define SHIELD_RESET  -1      // VS1053 reset pin (unused!)
 #define SHIELD_CS     7      // VS1053 chip select pin (output)
 #define SHIELD_DCS    6
@@ -17,6 +19,13 @@
 // 2 x 24 LED AdaFruit NeoPixel rings (P1586)
 #define PIN        9 // Which pin on the Arduino is connected to the NeoPixels?
 #define NUMPIXELS 48 // Total number of pixels
+
+//servos
+#define LEFT_EYE 10
+#define RIGHT_EYE 5
+
+Servo leftEye;
+Servo rightEye;
 
 enum State_T {
   hangry,
@@ -34,9 +43,14 @@ int laserSensor;
 unsigned long stateStartTime;
 
 void setup() {
+
+  leftEye.attach(LEFT_EYE, 500, 2500);
+  rightEye.attach(RIGHT_EYE, 500, 2500);
+
   pixels.begin();
   Serial.begin(9600);
 
+  // photo-resistor
   pinMode(A0, INPUT);
 
   if (! musicPlayer.begin()) { // initialise the music player
@@ -71,6 +85,8 @@ void changeState(State_T newState) {
 }
 
 void hangryState() {
+  leftEye.write(50);
+  rightEye.write(50);
   Serial.print(" Hangry ");
   Serial.print("\n");
 	eyecolor(10,0,0);
@@ -83,6 +99,8 @@ void hangryState() {
 }
 
 void chewingState() {
+  leftEye.write(100);
+  rightEye.write(100);
   Serial.print(" Chewing ");
   Serial.print("\n");
   eyecolor(10, 2, 0);
@@ -96,6 +114,8 @@ void chewingState() {
 }
 
 void happyState() {
+  leftEye.write(150);
+  rightEye.write(150);
   Serial.print(" Happy ");
   Serial.print("\n");
   eyecolor(0, 10, 0);
