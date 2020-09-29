@@ -37,3 +37,8 @@ Sourcecode for a robot that eats cereal boxes
 | Analog 4 |  |
 | Analog 5 |  |
 
+## Arduino Libraries
+
+ - "Adafruit NeoPixel"
+ - "Adafruit VS1053 Library" (for Music Maker Shield)
+

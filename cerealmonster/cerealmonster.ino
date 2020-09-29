@@ -1,13 +1,11 @@
-#include "Adafruit_NeoPixel.h"
+#include <Adafruit_NeoPixel.h>
 #ifdef __AVR__
 #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
-
-#include <Servo.h>
-
-#include <SPI.h>
 #include <Adafruit_VS1053.h>
 #include <SD.h>
+#include <Servo.h>
+#include <SPI.h>
 
 // AdaFruit MusicMaker mp3 player sheild
 #define SHIELD_RESET -1      // VS1053 reset pin (unused!)
