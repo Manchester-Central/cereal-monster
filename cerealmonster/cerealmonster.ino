@@ -16,13 +16,16 @@
 #define CARDCS        4      // Card chip select pin
 #define DREQ          3      // VS1053 Data request, ideally an Interrupt pin // DREQ should be an Int pin, see http://arduino.cc/en/Reference/attachInterrupt
 // 2 x 24 LED AdaFruit NeoPixel rings (P1586)
-#define PIN           9      // Which pin on the Arduino is connected to the NeoPixels?
+#define PIXEL_PIN     9      // Which pin on the Arduino is connected to the NeoPixels?
 #define NUMPIXELS    48      // Total number of pixels
 //servos
 #define LEFT_EYE     10
 #define RIGHT_EYE     5
 // photo-resistor
 #define BEAM_SENSOR  A0
+
+#define BEAM_THRESHOLD 120
+#define VOLUME         20
 
 Servo leftEye;
 Servo rightEye;
@@ -36,7 +39,7 @@ enum State_T {
 Adafruit_VS1053_FilePlayer musicPlayer =
   Adafruit_VS1053_FilePlayer(SHIELD_RESET, SHIELD_CS, SHIELD_DCS, DREQ, CARDCS);
 
-Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel pixels(NUMPIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 State_T state;
 unsigned long stateStartTime;
@@ -62,8 +65,7 @@ void setup() {
     while (1);  // don't do anything more
   }
 
-  musicPlayer.setVolume(20, 20);
-
+  musicPlayer.setVolume(VOLUME, VOLUME);
   musicPlayer.useInterrupt(VS1053_FILEPLAYER_PIN_INT);
   changeState(hangry);
 }
@@ -76,7 +78,25 @@ void eyecolor(uint8_t r, uint8_t g, uint8_t b) {
   pixels.show();
 }
 
+const char * stateName(State_T s) {
+  if (s == hangry) {
+    return "hangry";
+  } else if (s == chewing) {
+    return "chewing";
+  } else if (s == happy) {
+    return "happy";
+  } else {
+    return "(unknown)";
+  }
+}
+
 void changeState(State_T newState) {
+  Serial.print("State transition: ");
+  Serial.print(stateName(state));
+  Serial.print(" -> ");
+  Serial.print(stateName(newState));
+  Serial.print("\n");
+
   musicPlayer.stopPlaying();
   state = newState;
   stateStartTime = millis();
@@ -85,8 +105,6 @@ void changeState(State_T newState) {
 void hangryState() {
   leftEye.write(50);
   rightEye.write(50);
-  Serial.print(" Hangry ");
-  Serial.print("\n");
   eyecolor(10, 0, 0);
 
   if (isFed()) {
@@ -98,8 +116,6 @@ void hangryState() {
 void chewingState() {
   leftEye.write(100);
   rightEye.write(100);
-  Serial.print(" Chewing ");
-  Serial.print("\n");
   eyecolor(10, 2, 0);
 
   if (musicPlayer.stopped()) {
@@ -113,8 +129,6 @@ void chewingState() {
 void happyState() {
   leftEye.write(150);
   rightEye.write(150);
-  Serial.print(" Happy ");
-  Serial.print("\n");
   eyecolor(0, 10, 0);
 
   if (musicPlayer.stopped()) {
@@ -141,7 +155,7 @@ bool isFed() {
   // Serial.print("sensor: ");
   // Serial.print(value);
   // Serial.print("\n");
-  return value < 120;
+  return value < BEAM_THRESHOLD;
 }
 
 unsigned long getTimePassedMs() {
