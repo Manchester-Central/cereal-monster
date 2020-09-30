@@ -27,8 +27,8 @@ void loop() {
       Serial.print("Value: ");
       Serial.print(value);
       Serial.print("\n");
-      leftEye.write(50);
-      rightEye.write(50);
+      leftEye.write(value);
+      rightEye.write(value);
     }
   }
 
