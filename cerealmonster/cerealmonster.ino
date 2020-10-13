@@ -116,7 +116,7 @@ void chewingState() {
   rightEye.write(100);
   eyecolor(10, 2, 0);
 
-  if (musicPlayer.stopped()) {
+  if (musicPlayer.stopped() && getTimePassedMs() < 500 ) {
     musicPlayer.startPlayingFile("/chewing.mp3");
   }
   if (getTimePassedMs() > 5000) {
@@ -124,12 +124,15 @@ void chewingState() {
   }
 }
 
+// 1 loop = 100ms
+// happy.mp3 = 800ms
+
 void happyState() {
   leftEye.write(150);
   rightEye.write(150);
   eyecolor(0, 10, 0);
 
-  if (musicPlayer.stopped()) {
+  if (musicPlayer.stopped() && getTimePassedMs() < 500) {
     musicPlayer.startPlayingFile("/happy.mp3");
   }
   if (getTimePassedMs() > 10000) {
