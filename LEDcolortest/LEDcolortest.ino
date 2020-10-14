@@ -34,6 +34,8 @@ void loop() {
 
   String S = Serial.readStringUntil("\n");
 
+  //eyecolor(10, 0, 0);
+
   if (S.length() > 0) {
     int found = sscanf(S.c_str(), "%d %d %d", &red, &green, &blue);
     Serial.print(S.c_str());

@@ -22,7 +22,7 @@
 // photo-resistor
 #define BEAM_SENSOR  A0
 
-#define BEAM_THRESHOLD 120
+#define BEAM_THRESHOLD 800
 #define VOLUME         20
 
 Servo leftEye;
@@ -98,24 +98,44 @@ void changeState(State_T newState) {
   musicPlayer.stopPlaying();
   state = newState;
   stateStartTime = millis();
-}
 
-void hangryState() {
-  leftEye.write(50);
-  rightEye.write(50);
-  eyecolor(10, 0, 0);
-
-  if (isFed()) {
-    changeState(chewing);
+  switch (newState)
+  {
+    case hangry:
+      hangryState_entry();
+      break;
+    case chewing:
+      chewingState_entry();
+      break;
+    case happy:
+      happyState_entry();
+      break;
+    default:
+      break;
   }
 
 }
 
-void chewingState() {
-  leftEye.write(100);
-  rightEye.write(100);
-  eyecolor(10, 2, 0);
+void hangryState_entry() {
+  leftEye.write(90 - 20);
+  rightEye.write(90 + 20);
+  eyecolor(20, 0, 0);
+}
 
+void hangryState() {
+  if (isFed()) {
+    changeState(chewing);
+  }
+}
+
+void chewingState_entry()
+{
+  leftEye.write(90);
+  rightEye.write(90);
+  eyecolor(15, 5, 0);
+}
+
+void chewingState() {
   if (musicPlayer.stopped() && getTimePassedMs() < 500 ) {
     musicPlayer.startPlayingFile("/chewing.mp3");
   }
@@ -124,15 +144,20 @@ void chewingState() {
   }
 }
 
+void happyState_entry()
+{
+  leftEye.write(90 + 30);
+  rightEye.write(90 - 30);
+  eyecolor(0, 20, 0);
+}
+
 void happyState() {
-  leftEye.write(150);
-  rightEye.write(150);
-  eyecolor(0, 10, 0);
+
 
   if (musicPlayer.stopped() && getTimePassedMs() < 500) {
     musicPlayer.startPlayingFile("/happy.mp3");
   }
-  if (getTimePassedMs() > 10000) {
+  if (getTimePassedMs() > 5000) {
     changeState(hangry);
   }
 }
