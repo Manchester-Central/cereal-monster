@@ -2,6 +2,8 @@
 
 Sourcecode for a robot that eats cereal boxes
 
+![front](monster_front.jpg) ![back](monster_back.jpg)
+
 ## Hardware
 
  - Arduino Uno
