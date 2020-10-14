@@ -113,7 +113,6 @@ void changeState(State_T newState) {
     default:
       break;
   }
-
 }
 
 void hangryState_entry() {
@@ -133,12 +132,10 @@ void chewingState_entry()
   leftEye.write(90);
   rightEye.write(90);
   eyecolor(15, 5, 0);
+  musicPlayer.startPlayingFile("/chewing.mp3");
 }
 
 void chewingState() {
-  if (musicPlayer.stopped() && getTimePassedMs() < 500 ) {
-    musicPlayer.startPlayingFile("/chewing.mp3");
-  }
   if (getTimePassedMs() > 5000) {
     changeState(happy);
   }
@@ -149,14 +146,10 @@ void happyState_entry()
   leftEye.write(90 + 30);
   rightEye.write(90 - 30);
   eyecolor(0, 20, 0);
+  musicPlayer.startPlayingFile("/happy.mp3");
 }
 
 void happyState() {
-
-
-  if (musicPlayer.stopped() && getTimePassedMs() < 500) {
-    musicPlayer.startPlayingFile("/happy.mp3");
-  }
   if (getTimePassedMs() > 5000) {
     changeState(hangry);
   }
