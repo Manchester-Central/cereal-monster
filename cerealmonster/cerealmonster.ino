@@ -124,9 +124,6 @@ void chewingState() {
   }
 }
 
-// 1 loop = 100ms
-// happy.mp3 = 800ms
-
 void happyState() {
   leftEye.write(150);
   rightEye.write(150);
