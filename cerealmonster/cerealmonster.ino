@@ -22,7 +22,7 @@
 // photo-resistor
 #define BEAM_SENSOR  A0
 
-#define BEAM_THRESHOLD 800
+#define BEAM_THRESHOLD 600
 #define VOLUME         20
 
 Servo leftEye;
@@ -168,9 +168,9 @@ void loop() {
 
 bool isFed() {
   int value = analogRead(BEAM_SENSOR);
-  // Serial.print("sensor: ");
-  // Serial.print(value);
-  // Serial.print("\n");
+  Serial.print("sensor: ");
+  Serial.print(value);
+  Serial.print("\n");
   return value < BEAM_THRESHOLD;
 }
 
