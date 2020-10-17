@@ -116,8 +116,8 @@ void changeState(State_T newState) {
 }
 
 void hangryState_entry() {
-  leftEye.write(90 - 20);
-  rightEye.write(90 + 20);
+  leftEye.write(90);// - 20);
+  rightEye.write(90);//  + 20);
   eyecolor(20, 0, 0);
 }
 
@@ -143,8 +143,8 @@ void chewingState() {
 
 void happyState_entry()
 {
-  leftEye.write(90 + 30);
-  rightEye.write(90 - 30);
+  leftEye.write(90);// + 30);
+  rightEye.write(90);// - 30);
   eyecolor(0, 20, 0);
   musicPlayer.startPlayingFile("/happy.mp3");
 }
