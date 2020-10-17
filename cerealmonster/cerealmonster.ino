@@ -150,7 +150,7 @@ void happyState_entry()
 }
 
 void happyState() {
-  if (getTimePassedMs() > 5000) {
+  if (getTimePassedMs() > 4000) {
     changeState(hangry);
   }
 }
