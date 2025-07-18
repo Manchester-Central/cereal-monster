@@ -22,7 +22,8 @@
 // photo-resistor
 #define BEAM_SENSOR  A0
 
-#define BEAM_THRESHOLD 600
+// #define BEAM_THRESHOLD 600
+int BEAM_THRESHOLD = 600;
 #define VOLUME         20
 
 Servo leftEye;
@@ -43,6 +44,9 @@ State_T state;
 unsigned long stateStartTime;
 
 void setup() {
+  int average_value = lightCalibration();
+  int BEAM_THRESHOLD = average_value; 
+  Serial.print(BEAM_THRESHOLD);
 
   leftEye.attach(LEFT_EYE, 500, 2500);
   rightEye.attach(RIGHT_EYE, 500, 2500);
@@ -164,6 +168,28 @@ void loop() {
   } else {
     happyState();
   }
+
+}
+
+int lightCalibration() {
+  int value_1 = analogRead(BEAM_SENSOR);
+  delay(500);
+  Serial.print(value_1);
+  int value_2 = analogRead(BEAM_SENSOR);
+  delay(500);
+  Serial.print(value_2);
+  int value_3 = analogRead(BEAM_SENSOR);
+  delay(500);
+  Serial.print(value_3);
+  int value_4 = analogRead(BEAM_SENSOR);
+  delay(500);
+  Serial.print(value_4);
+  int value_5 = analogRead(BEAM_SENSOR);
+  delay(500);
+  Serial.print(value_5);
+  int average_value = ((value_1 + value_2 + value_3 + value_4 + value_5)/5) * 0.9;
+  return average_value;
+  Serial.print(average_value);
 }
 
 bool isFed() {
