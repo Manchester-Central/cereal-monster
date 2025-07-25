@@ -44,10 +44,6 @@ State_T state;
 unsigned long stateStartTime;
 
 void setup() {
-  int average_value = lightCalibration();
-  int BEAM_THRESHOLD = average_value; 
-  Serial.print(BEAM_THRESHOLD);
-
   leftEye.attach(LEFT_EYE, 500, 2500);
   rightEye.attach(RIGHT_EYE, 500, 2500);
 
@@ -55,6 +51,10 @@ void setup() {
   Serial.begin(9600);
 
   pinMode(BEAM_SENSOR, INPUT);
+
+  int average_value = lightCalibration();
+  BEAM_THRESHOLD = average_value; 
+  Serial.print(BEAM_THRESHOLD);
 
   if (! musicPlayer.begin()) { // initialise the music player
     Serial.println(F("Couldn't find VS1053, do you have the right pins defined?"));
@@ -174,29 +174,23 @@ void loop() {
 int lightCalibration() {
   int value_1 = analogRead(BEAM_SENSOR);
   delay(500);
-  Serial.print(value_1);
   int value_2 = analogRead(BEAM_SENSOR);
   delay(500);
-  Serial.print(value_2);
   int value_3 = analogRead(BEAM_SENSOR);
   delay(500);
-  Serial.print(value_3);
   int value_4 = analogRead(BEAM_SENSOR);
   delay(500);
-  Serial.print(value_4);
   int value_5 = analogRead(BEAM_SENSOR);
   delay(500);
-  Serial.print(value_5);
   int average_value = ((value_1 + value_2 + value_3 + value_4 + value_5)/5) * 0.9;
   return average_value;
-  Serial.print(average_value);
 }
 
 bool isFed() {
   int value = analogRead(BEAM_SENSOR);
-  Serial.print("sensor: ");
-  Serial.print(value);
-  Serial.print("\n");
+  //Serial.print("sensor: ");
+  //Serial.print(value);
+  //Serial.print("\n");
   return value < BEAM_THRESHOLD;
 }
 
