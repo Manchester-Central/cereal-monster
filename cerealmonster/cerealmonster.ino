@@ -32,7 +32,8 @@ Servo rightEye;
 enum State_T {
   hangry,
   chewing,
-  happy
+  happy,
+  gettinghungry
 };
 
 Adafruit_VS1053_FilePlayer musicPlayer =
@@ -89,6 +90,8 @@ const char* stateName(State_T s) {
     return "chewing";
   } else if (s == happy) {
     return "happy";
+  } else if (s == gettinghungry) {
+    return "getting hungry";
   } else {
     return "(unknown)";
   }
@@ -114,6 +117,9 @@ void changeState(State_T newState) {
       break;
     case happy:
       happyState_entry();
+      break;
+    case gettinghungry:
+      gettinghungryState_entry();
       break;
     default:
       break;
@@ -154,8 +160,22 @@ void happyState_entry() {
 
 void happyState() {
   if (getTimePassedMs() > 4000) {
-    changeState(hangry);
+    changeState(gettinghungry);
   }
+}
+
+void gettinghungryState_entry() {
+  leftEye.write(90 + 30);   // + 30);
+  rightEye.write(90 - 30);  // - 30);
+  eyecolor(20, 0, 20);
+  //musicPlayer.startPlayingFile("/happy.mp3");
+}
+
+void gettinghungryState() {
+if (getTimePassedMs() > 3000) {
+  changeState(hangry);
+}
+
 }
 
 void loop() {
@@ -166,6 +186,8 @@ void loop() {
     chewingState();
   } else if (state == happy) {
     happyState();
+  } else if (state == gettinghungry) {
+    gettinghungryState();
   }
 }
 
