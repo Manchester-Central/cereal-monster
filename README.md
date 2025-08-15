@@ -6,7 +6,7 @@ Sourcecode for a robot that eats cereal boxes
 
 ## State Machine
 
-![State Macine](CerealMonster.png)
+![State Machine](state_machine.png)
 
 TODO: Chi-Chi to write a description of the state machine
 
