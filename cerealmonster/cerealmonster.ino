@@ -171,10 +171,17 @@ void gettinghungryState_entry() {
   //musicPlayer.startPlayingFile("/happy.mp3");
 }
 
-void gettinghungryState() {
-if (getTimePassedMs() > 3000) {
-  changeState(hangry);
-}
+  void gettinghungryState() {
+  if (getTimePassedMs() > 3000) {
+    changeState(hangry);
+
+  } else { 
+    //y = -50/3000x + 120
+    int leftEyebrowAngle = (-50.0 / 3000.0) * getTimePassedMs() + 120;
+    leftEye.write(leftEyebrowAngle);
+    int rightEyebrowAngle = (50.0 / 3000.0) * getTimePassedMs() + 60;
+    rightEye.write(rightEyebrowAngle);
+  }
 
 }
 
