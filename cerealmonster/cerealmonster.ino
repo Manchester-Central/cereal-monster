@@ -35,24 +35,33 @@ struct Color {
   uint8_t b;
 };
 
-struct Color HANGRY_COLOR = {20, 0, 0};
-struct Color CHEWING_COLOR = {15, 5, 0};
-struct Color HAPPY_COLOR = {0, 20, 0};
-
 struct EyebrowPosition {
   int leftAngle;
   int rightAngle;
 };
 
+// Hangry State Constants
+struct Color HANGRY_COLOR = {20, 0, 0};
 struct EyebrowPosition HANGRY_EYEBROWS = {70, 110};
+
+// Chewing State Constants
+struct Color CHEWING_COLOR = {15, 5, 0};
 struct EyebrowPosition CHEWING_EYEBROWS = {90, 90};
+#define CHEWING_TIME_MS 5000
+
+// Happy State Constants
+struct Color HAPPY_COLOR = {0, 20, 0};
 struct EyebrowPosition HAPPY_EYEBROWS = {120, 60};
+#define HAPPY_TIME_MS 4000
+
+// Getting Hungry Constants
+#define GETTING_HUNGRY_TIME_MS 3000
 
 enum State_T {
   hangry,
   chewing,
   happy,
-  gettinghungry
+  getting_hungry
 };
 
 Adafruit_VS1053_FilePlayer musicPlayer =
@@ -123,7 +132,7 @@ const char* stateName(State_T s) {
     return "chewing";
   } else if (s == happy) {
     return "happy";
-  } else if (s == gettinghungry) {
+  } else if (s == getting_hungry) {
     return "getting hungry";
   } else {
     return "(unknown)";
@@ -151,8 +160,8 @@ void changeState(State_T newState) {
     case happy:
       happyState_entry();
       break;
-    case gettinghungry:
-      gettinghungryState_entry();
+    case getting_hungry:
+      gettingHungryState_entry();
       break;
     default:
       break;
@@ -177,7 +186,7 @@ void chewingState_entry() {
 }
 
 void chewingState() {
-  if (getTimePassedMs() > 5000) {
+  if (getTimePassedMs() > CHEWING_TIME_MS) {
     changeState(happy);
   }
 }
@@ -189,19 +198,19 @@ void happyState_entry() {
 }
 
 void happyState() {
-  if (getTimePassedMs() > 4000) {
-    changeState(gettinghungry);
+  if (getTimePassedMs() > HAPPY_TIME_MS) {
+    changeState(getting_hungry);
   }
 }
 
-void gettinghungryState_entry() {
+void gettingHungryState_entry() {
   setEyebrowPosition(HAPPY_EYEBROWS);
   setEyeColor(HAPPY_COLOR);
   //musicPlayer.startPlayingFile("/happy.mp3");
 }
 
-void gettinghungryState() {
-  if (getTimePassedMs() > 3000) {
+void gettingHungryState() {
+  if (getTimePassedMs() > GETTING_HUNGRY_TIME_MS) {
     changeState(hangry);
     return;
   }
@@ -209,17 +218,17 @@ void gettinghungryState() {
   if (loopCount % 10 == 0) {
     //y = -50/3000x + 120 -- Chi-Chi's original formula for the left eye
     setEyebrowPosition(
-      getLinearValueForCurrentTime(HAPPY_EYEBROWS.leftAngle, HANGRY_EYEBROWS.leftAngle, 3000.0),
-      getLinearValueForCurrentTime(HAPPY_EYEBROWS.rightAngle, HANGRY_EYEBROWS.rightAngle, 3000.0)
+      getLinearValueForCurrentTime(HAPPY_EYEBROWS.leftAngle, HANGRY_EYEBROWS.leftAngle, GETTING_HUNGRY_TIME_MS),
+      getLinearValueForCurrentTime(HAPPY_EYEBROWS.rightAngle, HANGRY_EYEBROWS.rightAngle, GETTING_HUNGRY_TIME_MS)
     );
   }
 
   // Setting the eye color every loop causes slowness, so do this less frequently.
   if (loopCount % 5000 == 0) {
     setEyeColor(
-       getLinearValueForCurrentTime(HAPPY_COLOR.r, HANGRY_COLOR.r, 3000.0),
-       getLinearValueForCurrentTime(HAPPY_COLOR.g, HANGRY_COLOR.g, 3000.0),
-       getLinearValueForCurrentTime(HAPPY_COLOR.b, HANGRY_COLOR.b, 3000.0)
+       getLinearValueForCurrentTime(HAPPY_COLOR.r, HANGRY_COLOR.r, GETTING_HUNGRY_TIME_MS),
+       getLinearValueForCurrentTime(HAPPY_COLOR.g, HANGRY_COLOR.g, GETTING_HUNGRY_TIME_MS),
+       getLinearValueForCurrentTime(HAPPY_COLOR.b, HANGRY_COLOR.b, GETTING_HUNGRY_TIME_MS)
     );
   }
 }
@@ -237,8 +246,8 @@ void loop() {
     chewingState();
   } else if (state == happy) {
     happyState();
-  } else if (state == gettinghungry) {
-    gettinghungryState();
+  } else if (state == getting_hungry) {
+    gettingHungryState();
   }
   loopCount++;
 }
