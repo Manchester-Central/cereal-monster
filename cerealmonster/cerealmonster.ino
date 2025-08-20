@@ -29,6 +29,25 @@ int BEAM_THRESHOLD = 600;
 Servo leftEye;
 Servo rightEye;
 
+struct Color {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+};
+
+struct Color HANGRY_COLOR = {20, 0, 0};
+struct Color CHEWING_COLOR = {15, 5, 0};
+struct Color HAPPY_COLOR = {0, 20, 0};
+
+struct EyebrowPosition {
+  int leftAngle;
+  int rightAngle;
+};
+
+struct EyebrowPosition HANGRY_EYEBROWS = {70, 110};
+struct EyebrowPosition CHEWING_EYEBROWS = {90, 90};
+struct EyebrowPosition HAPPY_EYEBROWS = {120, 60};
+
 enum State_T {
   hangry,
   chewing,
@@ -43,6 +62,7 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 State_T state;
 unsigned long stateStartTime;
+unsigned long loopCount = 0;
 
 void setup() {
   leftEye.attach(LEFT_EYE, 500, 2500);
@@ -75,12 +95,25 @@ void setup() {
   changeState(hangry);
 }
 
-void eyecolor(uint8_t r, uint8_t g, uint8_t b) {
+void setEyeColor(uint8_t r, uint8_t g, uint8_t b) {
   for (int i = 0; i < NUMPIXELS; i++) {  // For each pixel...
     // pixels.Color() takes RGB values, from 0,0,0 up to 255,255,255
     pixels.setPixelColor(i, pixels.Color(r, g, b));
   }
   pixels.show();
+}
+
+void setEyeColor(struct Color newColor) {
+  setEyeColor(newColor.r, newColor.g, newColor.b);
+}
+
+void setEyebrowPosition(int leftAngle, int rightAngle) {
+  leftEye.write(leftAngle);
+  rightEye.write(rightAngle);
+}
+
+void setEyebrowPosition(struct EyebrowPosition newPosition) {
+  setEyebrowPosition(newPosition.leftAngle, newPosition.rightAngle);
 }
 
 const char* stateName(State_T s) {
@@ -127,9 +160,8 @@ void changeState(State_T newState) {
 }
 
 void hangryState_entry() {
-  leftEye.write(90 - 20);   // - 20);
-  rightEye.write(90 + 20);  //  + 20);
-  eyecolor(20, 0, 0);
+  setEyebrowPosition(HANGRY_EYEBROWS);
+  setEyeColor(HANGRY_COLOR);
 }
 
 void hangryState() {
@@ -139,9 +171,8 @@ void hangryState() {
 }
 
 void chewingState_entry() {
-  leftEye.write(90);
-  rightEye.write(90);
-  eyecolor(15, 5, 0);
+  setEyebrowPosition(CHEWING_EYEBROWS);
+  setEyeColor(CHEWING_COLOR);
   musicPlayer.startPlayingFile("/chewing.mp3");
 }
 
@@ -152,9 +183,8 @@ void chewingState() {
 }
 
 void happyState_entry() {
-  leftEye.write(90 + 30);   // + 30);
-  rightEye.write(90 - 30);  // - 30);
-  eyecolor(0, 20, 0);
+  setEyebrowPosition(HAPPY_EYEBROWS);
+  setEyeColor(HAPPY_COLOR);
   musicPlayer.startPlayingFile("/happy.mp3");
 }
 
@@ -165,35 +195,36 @@ void happyState() {
 }
 
 void gettinghungryState_entry() {
-  leftEye.write(90 + 30);   // + 30);
-  rightEye.write(90 - 30);  // - 30);
-  eyecolor(20, 0, 20);
+  setEyebrowPosition(HAPPY_EYEBROWS);
+  setEyeColor(HAPPY_COLOR);
   //musicPlayer.startPlayingFile("/happy.mp3");
 }
 
-int loopCount = 0;
-  void gettinghungryState() {
+void gettinghungryState() {
   if (getTimePassedMs() > 3000) {
     changeState(hangry);
     return;
-  } else if(loopCount % 10 == 0) { 
-    //y = -50/3000x + 120
-    leftEye.write((int)getLinearValue(120.0, 70.0, 3000.0));
-    rightEye.write((int)getLinearValue(60.0, 110.0, 3000.0));
-    
   }
 
-  if ( loopCount % 5000 == 0) {
-    eyecolor(
-       getLinearValue(0.0, 20.0, 3000.0),
-       getLinearValue(20.0, 0.0, 3000.0),
-       getLinearValue(0.0, 0.0, 3000.0)
+  if (loopCount % 10 == 0) {
+    //y = -50/3000x + 120 -- Chi-Chi's original formula for the left eye
+    setEyebrowPosition(
+      getLinearValueForCurrentTime(HAPPY_EYEBROWS.leftAngle, HANGRY_EYEBROWS.leftAngle, 3000.0),
+      getLinearValueForCurrentTime(HAPPY_EYEBROWS.rightAngle, HANGRY_EYEBROWS.rightAngle, 3000.0)
     );
   }
-  loopCount++;
 
+  // Setting the eye color every loop causes slowness, so do this less frequently.
+  if (loopCount % 5000 == 0) {
+    setEyeColor(
+       getLinearValueForCurrentTime(HAPPY_COLOR.r, HANGRY_COLOR.r, 3000.0),
+       getLinearValueForCurrentTime(HAPPY_COLOR.g, HANGRY_COLOR.g, 3000.0),
+       getLinearValueForCurrentTime(HAPPY_COLOR.b, HANGRY_COLOR.b, 3000.0)
+    );
+  }
 }
-double getLinearValue(double startValue, double endValue, double timeRangeMs) {
+
+double getLinearValueForCurrentTime(double startValue, double endValue, double timeRangeMs) {
   double valueRange = endValue - startValue;
   return (valueRange / timeRangeMs) * getTimePassedMs() + startValue;
 }
@@ -209,6 +240,7 @@ void loop() {
   } else if (state == gettinghungry) {
     gettinghungryState();
   }
+  loopCount++;
 }
 
 int lightCalibration() {
