@@ -32,7 +32,8 @@ Servo rightEye;
 enum State_T {
   hangry,
   chewing,
-  happy
+  happy,
+  gettinghungry
 };
 
 Adafruit_VS1053_FilePlayer musicPlayer =
@@ -89,6 +90,8 @@ const char* stateName(State_T s) {
     return "chewing";
   } else if (s == happy) {
     return "happy";
+  } else if (s == gettinghungry) {
+    return "getting hungry";
   } else {
     return "(unknown)";
   }
@@ -114,6 +117,9 @@ void changeState(State_T newState) {
       break;
     case happy:
       happyState_entry();
+      break;
+    case gettinghungry:
+      gettinghungryState_entry();
       break;
     default:
       break;
@@ -154,8 +160,42 @@ void happyState_entry() {
 
 void happyState() {
   if (getTimePassedMs() > 4000) {
-    changeState(hangry);
+    changeState(gettinghungry);
   }
+}
+
+void gettinghungryState_entry() {
+  leftEye.write(90 + 30);   // + 30);
+  rightEye.write(90 - 30);  // - 30);
+  eyecolor(20, 0, 20);
+  //musicPlayer.startPlayingFile("/happy.mp3");
+}
+
+int loopCount = 0;
+  void gettinghungryState() {
+  if (getTimePassedMs() > 3000) {
+    changeState(hangry);
+    return;
+  } else if(loopCount % 10 == 0) { 
+    //y = -50/3000x + 120
+    leftEye.write((int)getLinearValue(120.0, 70.0, 3000.0));
+    rightEye.write((int)getLinearValue(60.0, 110.0, 3000.0));
+    
+  }
+
+  if ( loopCount % 5000 == 0) {
+    eyecolor(
+       getLinearValue(0.0, 20.0, 3000.0),
+       getLinearValue(20.0, 0.0, 3000.0),
+       getLinearValue(0.0, 0.0, 3000.0)
+    );
+  }
+  loopCount++;
+
+}
+double getLinearValue(double startValue, double endValue, double timeRangeMs) {
+  double valueRange = endValue - startValue;
+  return (valueRange / timeRangeMs) * getTimePassedMs() + startValue;
 }
 
 void loop() {
@@ -166,6 +206,8 @@ void loop() {
     chewingState();
   } else if (state == happy) {
     happyState();
+  } else if (state == gettinghungry) {
+    gettinghungryState();
   }
 }
 
