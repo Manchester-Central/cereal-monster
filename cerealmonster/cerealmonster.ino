@@ -8,89 +8,92 @@
 #include <SPI.h>
 
 // AdaFruit MusicMaker mp3 player sheild
-#define SHIELD_RESET -1  // VS1053 reset pin (unused!)
-#define SHIELD_CS 7      // VS1053 chip select pin (output)
-#define SHIELD_DCS 6
-#define CARDCS 4  // Card chip select pin
-#define DREQ 3    // VS1053 Data request, ideally an Interrupt pin // DREQ should be an Int pin, see http://arduino.cc/en/Reference/attachInterrupt
+const int32_t SHIELD_RESET = -1;  // VS1053 reset pin
+const uint32_t SHIELD_CS = 7;     // VS1053 chip select pin (output)
+const uint32_t SHIELD_DCS = 6;
+const uint32_t CARDCS = 4;  // Card chip select pin
+const uint32_t DREQ = 3;    // VS1053 Data request, ideally an Interrupt pin // DREQ should be an Int pin, see http://arduino.cc/en/Reference/attachInterrupt
 // 2 x 24 LED AdaFruit NeoPixel rings (P1586)
-#define PIXEL_PIN 9   // Which pin on the Arduino is connected to the NeoPixels?
-#define NUMPIXELS 48  // Total number of pixels
+const uint32_t PIXEL_PIN = 9;   // Which pin on the Arduino is connected to the NeoPixels?
+const uint32_t NUMPIXELS = 48;  // Total number of pixels
 //servos
-#define LEFT_EYE 10
-#define RIGHT_EYE 5
+const uint32_t LEFT_EYE = 10;
+const uint32_t RIGHT_EYE = 5;
+const int32_t HANGRY_ANGLE = -20; // left eye difference
+const int32_t CHEWING_ANGLE = 0; // also left eye
+const int32_t HAPPY_ANGLE = 30;  // believe it or not, still the left eye
 // photo-resistor
-#define BEAM_SENSOR A0
+const uint32_t BEAM_SENSOR = 0xA0;
+const float BEAM_CALIBRATION_COEFFICIENT = 0.9;
+const uint8_t VOLUME = 20; // 0 is loudest, 255 is off
+const uint64_t GETTING_HANGRY_DURATION_MS = 3000;
+int beam_threshold = 600; // default value, will be overridden
 
-// #define BEAM_THRESHOLD 600
-int BEAM_THRESHOLD = 600;
-#define VOLUME 20
+struct Color {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+  uint8_t _padding; // ignore the 4th value, it exists solely for word-alignment
 
-Servo leftEye;
-Servo rightEye;
+  Color(uint8_t i, uint8_t j, uint8_t k) {
+    r=i;
+    g=j;
+    b=k;
+    // This constructor means you don't have to include the padding in future calls
+    _padding = 0;
+  }
+};
 
-enum State_T {
+const Color HANGRY_COLOR{20, 0, 0};
+const Color CHEWING_COLOR{15, 5, 0};
+const Color HAPPY_COLOR{0, 20, 0};
+
+enum class State_T {
   hangry,
   chewing,
   happy,
-  gettinghungry
+  getting_hungry
 };
 
-Adafruit_VS1053_FilePlayer musicPlayer =
-  Adafruit_VS1053_FilePlayer(SHIELD_RESET, SHIELD_CS, SHIELD_DCS, DREQ, CARDCS);
+// eyebrow motors
+Servo leftEye;
+Servo rightEye;
+// speakers
+Adafruit_VS1053_FilePlayer musicPlayer{SHIELD_RESET, SHIELD_CS, SHIELD_DCS, DREQ, CARDCS};
+// LED eyes
+Adafruit_NeoPixel pixels{NUMPIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800};
 
-Adafruit_NeoPixel pixels(NUMPIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
-
-State_T state;
+// state machine
+State_T state = State_T::happy;
 unsigned long stateStartTime;
 
-void setup() {
-  leftEye.attach(LEFT_EYE, 500, 2500);
-  rightEye.attach(RIGHT_EYE, 500, 2500);
-
-  pixels.begin();
-  Serial.begin(9600);
-
-  pinMode(BEAM_SENSOR, INPUT);
-
-  int average_value = lightCalibration();
-  BEAM_THRESHOLD = average_value;
-  Serial.print(BEAM_THRESHOLD);
-
-  if (!musicPlayer.begin()) {  // initialise the music player
-    Serial.println(F("Couldn't find VS1053, do you have the right pins defined?"));
-    while (1)
-      ;
-  }
-  Serial.println(F("VS1053 found"));
-
-  if (!SD.begin(CARDCS)) {
-    Serial.println(F("SD failed, or not present"));
-    while (1)
-      ;  // don't do anything more
-  }
-
-  musicPlayer.setVolume(VOLUME, VOLUME);
-  musicPlayer.useInterrupt(VS1053_FILEPLAYER_PIN_INT);
-  changeState(hangry);
+// Gets the time since the state was entered via changeState
+uint64_t getTimePassedMs() {
+  uint64_t currentTime = millis();
+  return currentTime - stateStartTime;
 }
 
-void eyecolor(uint8_t r, uint8_t g, uint8_t b) {
+template<T>
+T linearInterpolate(T start, T end, double alpha) {
+  return static_cast<T>((end - start) * alpha + start);
+}
+
+void setEyeColor(Color& color) {
   for (int i = 0; i < NUMPIXELS; i++) {  // For each pixel...
     // pixels.Color() takes RGB values, from 0,0,0 up to 255,255,255
-    pixels.setPixelColor(i, pixels.Color(r, g, b));
+    pixels.setPixelColor(i, pixels.Color(color.r, color.g, color.b));
   }
   pixels.show();
 }
 
 const char* stateName(State_T s) {
-  if (s == hangry) {
+  if (s == State_T::hangry) {
     return "hangry";
-  } else if (s == chewing) {
+  } else if (s == State_T::chewing) {
     return "chewing";
-  } else if (s == happy) {
+  } else if (s == State_T::happy) {
     return "happy";
-  } else if (s == gettinghungry) {
+  } else if (s == State_T::getting_hungry) {
     return "getting hungry";
   } else {
     return "(unknown)";
@@ -109,121 +112,113 @@ void changeState(State_T newState) {
   stateStartTime = millis();
 
   switch (newState) {
-    case hangry:
-      hangryState_entry();
+    case State_T::hangry:
+      hangry_entry();
       break;
-    case chewing:
-      chewingState_entry();
+    case State_T::chewing:
+      chewing_entry();
       break;
-    case happy:
-      happyState_entry();
+    case State_T::happy:
+      happy_entry();
       break;
-    case gettinghungry:
-      gettinghungryState_entry();
+    case State_T::getting_hungry:
+      getting_hungry_entry();
       break;
     default:
       break;
   }
 }
 
-void hangryState_entry() {
-  leftEye.write(90 - 20);   // - 20);
-  rightEye.write(90 + 20);  //  + 20);
-  eyecolor(20, 0, 0);
+void hangry_entry() {
+  leftEye.write(90+HANGRY_ANGLE);   // - 20);
+  rightEye.write(90-HANGRY_ANGLE);  //  + 20);
+  setEyeColor(HANGRY_COLOR);
 }
 
 void hangryState() {
   if (isFed()) {
-    changeState(chewing);
+    changeState(State_T::chewing);
   }
 }
 
-void chewingState_entry() {
-  leftEye.write(90);
-  rightEye.write(90);
-  eyecolor(15, 5, 0);
+void chewing_entry() {
+  leftEye.write(90+CHEWING_ANGLE);
+  rightEye.write(90-CHEWING_ANGLE);
+  setEyeColor(CHEWING_COLOR);
   musicPlayer.startPlayingFile("/chewing.mp3");
 }
 
 void chewingState() {
   if (getTimePassedMs() > 5000) {
-    changeState(happy);
+    changeState(State_T::happy);
   }
 }
 
-void happyState_entry() {
-  leftEye.write(90 + 30);   // + 30);
-  rightEye.write(90 - 30);  // - 30);
-  eyecolor(0, 20, 0);
+void happy_entry() {
+  leftEye.write(90+HAPPY_ANGLE);   // + 30);
+  rightEye.write(90-HAPPY_ANGLE);  // - 30);
+  setEyeColor(HAPPY_COLOR);
   musicPlayer.startPlayingFile("/happy.mp3");
 }
 
 void happyState() {
   if (getTimePassedMs() > 4000) {
-    changeState(gettinghungry);
+    changeState(State_T::getting_hungry);
   }
 }
 
-void gettinghungryState_entry() {
-  leftEye.write(90 + 30);   // + 30);
-  rightEye.write(90 - 30);  // - 30);
-  eyecolor(20, 0, 20);
-  //musicPlayer.startPlayingFile("/happy.mp3");
+void getting_hungry_entry() {
+  // No-op, every state loop writes to LEDs and motors
 }
 
-int loopCount = 0;
-  void gettinghungryState() {
-  if (getTimePassedMs() > 3000) {
-    changeState(hangry);
+void gettinghungryState() {
+  uint64_t time_in_state = getTimePassedMs();
+  if (time_in_state > GETTING_HANGRY_DURATION_MS) {
+    changeState(State_T::hangry);
     return;
-  } else if(loopCount % 10 == 0) { 
-    //y = -50/3000x + 120
-    leftEye.write((int)getLinearValue(120.0, 70.0, 3000.0));
-    rightEye.write((int)getLinearValue(60.0, 110.0, 3000.0));
-    
   }
 
-  if ( loopCount % 5000 == 0) {
-    eyecolor(
-       getLinearValue(0.0, 20.0, 3000.0),
-       getLinearValue(20.0, 0.0, 3000.0),
-       getLinearValue(0.0, 0.0, 3000.0)
-    );
-  }
-  loopCount++;
+  // alpha is a term in many fields, but most commonly means "0 to 100% progress"
+  // or some other coefficient in an equation.
+  double alpha = static_cast<double>(time_in_state) / GETTING_HANGRY_DURATION_MS;
+  
+  // If the motors are having issues with writes every loop, then adding some
+  // artificial delays here would be in order
 
+  //y = -50/3000x + 120
+  leftEye.write(linearInterpolate(90+HAPPY_ANGLE, 90+HANGRY_ANGLE, alpha));
+  rightEye.write(linearInterpolate(90-HAPPY_ANGLE, 90-HANGRY_ANGLE, alpha));
+  setEyeColor(blendColor(HAPPY_COLOR, HANGRY_COLOR, alpha))
 }
-double getLinearValue(double startValue, double endValue, double timeRangeMs) {
+
+double getLinearValueByStateLength(double startValue, double endValue, double timeRangeMs) {
   double valueRange = endValue - startValue;
   return (valueRange / timeRangeMs) * getTimePassedMs() + startValue;
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
-  if (state == hangry) {
-    hangryState();
-  } else if (state == chewing) {
-    chewingState();
-  } else if (state == happy) {
-    happyState();
-  } else if (state == gettinghungry) {
-    gettinghungryState();
-  }
+Color blendColor(Color& start, Color& end, double alpha) {
+  return Color{
+    linearInterpolate(start.r, end.r, alpha),
+    linearInterpolate(start.g, end.g, alpha),
+    linearInterpolate(start.b, end.b, alpha)
+  };
 }
 
-int lightCalibration() {
-  int value_1 = analogRead(BEAM_SENSOR);
+
+uint32_t lightCalibration() {
+  uint32_t sum = 0;
+  sum += analogRead(BEAM_SENSOR);
   delay(500);
-  int value_2 = analogRead(BEAM_SENSOR);
+  sum += analogRead(BEAM_SENSOR);
   delay(500);
-  int value_3 = analogRead(BEAM_SENSOR);
+  sum += analogRead(BEAM_SENSOR);
   delay(500);
-  int value_4 = analogRead(BEAM_SENSOR);
+  sum += analogRead(BEAM_SENSOR);
   delay(500);
-  int value_5 = analogRead(BEAM_SENSOR);
+  sum += analogRead(BEAM_SENSOR);
   delay(500);
-  int average_value = ((value_1 + value_2 + value_3 + value_4 + value_5) / 5) * 0.9;
-  return average_value;
+  int average_value = sum / 5.0;
+  return static_cast<uint32_t>(average_value * BEAM_CALIBRATION_COEFFICIENT);
 }
 
 bool isFed() {
@@ -231,10 +226,47 @@ bool isFed() {
   //Serial.print("sensor: ");
   //Serial.print(value);
   //Serial.print("\n");
-  return value < BEAM_THRESHOLD;
+  return value < beam_threshold;
 }
 
-unsigned long getTimePassedMs() {
-  unsigned long currentTime = millis();
-  return currentTime - stateStartTime;
+void setup() {
+  //             PIN_ID,   MIN, MAX pulse width in microseconds
+  leftEye.attach(LEFT_EYE, 500, 2500);
+  rightEye.attach(RIGHT_EYE, 500, 2500);
+
+  pixels.begin();
+  Serial.begin(9600); // 9600 is something called a baud rate, ask a mentor what that means!
+
+  pinMode(BEAM_SENSOR, INPUT);
+
+  beam_threshold = lightCalibration();
+  Serial.print(beam_threshold);
+
+  if (!musicPlayer.begin()) {  // initialise the music player
+    Serial.println(F("Couldn't find VS1053, do you have the right pins defined?"));
+    while(true); // don't do anything more
+  }
+  Serial.println(F("VS1053 found"));
+
+  if (!SD.begin(CARDCS)) {
+    Serial.println(F("SD failed, or not present"));
+    while(true); // don't do anything more
+  }
+
+  musicPlayer.setVolume(VOLUME, VOLUME);
+  musicPlayer.useInterrupt(VS1053_FILEPLAYER_PIN_INT);
+  changeState(State_T::hangry);
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  if (state == State_T::hangry) {
+    hangryState();
+  } else if (state == State_T::chewing) {
+    chewingState();
+  } else if (state == State_T::happy) {
+    happyState();
+  } else if (state == State_T::getting_hungry) {
+    gettinghungryState();
+  }
 }
