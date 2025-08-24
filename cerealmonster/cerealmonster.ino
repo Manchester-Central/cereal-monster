@@ -19,9 +19,6 @@ const uint32_t NUMPIXELS = 48;  // Total number of pixels
 //servos
 const uint32_t LEFT_EYE = 10;
 const uint32_t RIGHT_EYE = 5;
-const int32_t HANGRY_ANGLE = -20; // left eye difference
-const int32_t CHEWING_ANGLE = 0; // also left eye
-const int32_t HAPPY_ANGLE = 30;  // believe it or not, still the left eye
 // photo-resistor
 const uint32_t BEAM_SENSOR = 0xA0;
 const float BEAM_CALIBRATION_COEFFICIENT = 0.9;
@@ -48,12 +45,37 @@ const Color HANGRY_COLOR{20, 0, 0};
 const Color CHEWING_COLOR{15, 5, 0};
 const Color HAPPY_COLOR{0, 20, 0};
 
+struct EyePosition {
+  uint32_t left_angle;
+  uint32_t right_angle;
+
+  EyePosition(uint32_t left_eye_difference) {
+    left_angle = 90+left_eye_difference;
+    right_angle = 90-left_eye_difference;
+  }
+
+  // To support potential weird crazy eye behavior, you can set both at init
+  EyePosition(uint32_t left_eye_difference, uint32_t right_eye_difference) {
+    left_angle = 90+left_eye_difference;
+    // I think +right is better here, as students might try to put the opposite
+    // direction in for the other eye if they wanted to set both explicitly
+    right_angle = 90+right_eye_difference;
+  }
+};
+
+const EyePosition HANGRY_EYES{-20};
+const EyePosition CHEWING_EYES{0};
+const EyePosition HAPPY_EYES{30};
+
 enum class State_T {
   hangry,
   chewing,
   happy,
   getting_hungry
 };
+uint32_t HAPPY_STATE_DURATION_MS = 4000;
+uint32_t CHEWING_STATE_DURATION_MS = 5000;
+uint64_t state_loop_count = 0;
 
 // eyebrow motors
 Servo leftEye;
@@ -64,7 +86,7 @@ Adafruit_VS1053_FilePlayer musicPlayer{SHIELD_RESET, SHIELD_CS, SHIELD_DCS, DREQ
 Adafruit_NeoPixel pixels{NUMPIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800};
 
 // state machine
-State_T state = State_T::happy;
+State_T currentState = State_T::happy;
 unsigned long stateStartTime;
 
 // Gets the time since the state was entered via changeState
@@ -73,9 +95,24 @@ uint64_t getTimePassedMs() {
   return currentTime - stateStartTime;
 }
 
-template<T>
+template<typname T>
 T linearInterpolate(T start, T end, double alpha) {
   return static_cast<T>((end - start) * alpha + start);
+}
+
+EyePosition blendEyePosition(EyePosition& start, EyePosition& end, double alpha) {
+  return EyePosition{
+    linearInterpolate(start.left_angle, end.left_angle, alpha),
+    linearInterpolate(start.right_angle, end.right_angle, alpha)
+  };
+}
+
+Color blendColor(Color& start, Color& end, double alpha) {
+  return Color{
+    linearInterpolate(start.r, end.r, alpha),
+    linearInterpolate(start.g, end.g, alpha),
+    linearInterpolate(start.b, end.b, alpha)
+  };
 }
 
 void setEyeColor(Color& color) {
@@ -86,29 +123,34 @@ void setEyeColor(Color& color) {
   pixels.show();
 }
 
+void setEyePosition(EyePosition& position) {
+  leftEye.write(position.left_angle);
+  rightEye.write(position.right_angle);
+}
+
 const char* stateName(State_T s) {
-  if (s == State_T::hangry) {
-    return "hangry";
-  } else if (s == State_T::chewing) {
-    return "chewing";
-  } else if (s == State_T::happy) {
-    return "happy";
-  } else if (s == State_T::getting_hungry) {
-    return "getting hungry";
-  } else {
-    return "(unknown)";
+  switch (s) {
+    case State_T::hangry:
+      return "hangry";
+    case State_T::chewing:
+      return "chewing";
+    case State_T::happy:
+      return "happy";
+    case State_T::getting_hungry:
+      return "getting hungry";
   }
 }
 
 void changeState(State_T newState) {
+  musicPlayer.stopPlaying();
+
   Serial.print("State transition: ");
-  Serial.print(stateName(state));
+  Serial.print(stateName(currentState));
   Serial.print(" -> ");
   Serial.print(stateName(newState));
   Serial.print("\n");
 
-  musicPlayer.stopPlaying();
-  state = newState;
+  currentState = newState;
   stateStartTime = millis();
 
   switch (newState) {
@@ -124,14 +166,12 @@ void changeState(State_T newState) {
     case State_T::getting_hungry:
       getting_hungry_entry();
       break;
-    default:
-      break;
   }
+  state_loop_count = 0;
 }
 
 void hangry_entry() {
-  leftEye.write(90+HANGRY_ANGLE);   // - 20);
-  rightEye.write(90-HANGRY_ANGLE);  //  + 20);
+  setEyePosition(HANGRY_EYES);
   setEyeColor(HANGRY_COLOR);
 }
 
@@ -142,27 +182,25 @@ void hangryState() {
 }
 
 void chewing_entry() {
-  leftEye.write(90+CHEWING_ANGLE);
-  rightEye.write(90-CHEWING_ANGLE);
+  setEyePosition(CHEWING_EYES);
   setEyeColor(CHEWING_COLOR);
   musicPlayer.startPlayingFile("/chewing.mp3");
 }
 
 void chewingState() {
-  if (getTimePassedMs() > 5000) {
+  if (getTimePassedMs() > CHEWING_STATE_DURATION_MS) {
     changeState(State_T::happy);
   }
 }
 
 void happy_entry() {
-  leftEye.write(90+HAPPY_ANGLE);   // + 30);
-  rightEye.write(90-HAPPY_ANGLE);  // - 30);
+  setEyePosition(HAPPY_EYES);
   setEyeColor(HAPPY_COLOR);
   musicPlayer.startPlayingFile("/happy.mp3");
 }
 
 void happyState() {
-  if (getTimePassedMs() > 4000) {
+  if (getTimePassedMs() > HAPPY_STATE_DURATION_MS) {
     changeState(State_T::getting_hungry);
   }
 }
@@ -178,32 +216,21 @@ void gettinghungryState() {
     return;
   }
 
-  // alpha is a term in many fields, but most commonly means "0 to 100% progress"
-  // or some other coefficient in an equation.
+  // alpha is a term in many fields, but commonly means "0 to 100%"
+  // or some other value in an equation.
   double alpha = static_cast<double>(time_in_state) / GETTING_HANGRY_DURATION_MS;
-  
-  // If the motors are having issues with writes every loop, then adding some
-  // artificial delays here would be in order
 
-  //y = -50/3000x + 120
-  leftEye.write(linearInterpolate(90+HAPPY_ANGLE, 90+HANGRY_ANGLE, alpha));
-  rightEye.write(linearInterpolate(90-HAPPY_ANGLE, 90-HANGRY_ANGLE, alpha));
-  setEyeColor(blendColor(HAPPY_COLOR, HANGRY_COLOR, alpha))
+  // We're running each loop (staggered) every 10 arduino loops
+  // Possibly improvement would be to do it every 1 degree that the angle changes,
+  // or maybe a student can think of something more clever!
+  if (state_loop_count % 10 == 0) {
+    setEyePosition(blendEyePosition(HAPPY_EYES, HANGRY_EYES, alpha));
+  }
+
+  if (state_loop_count+5 % 10 == 0 ) {
+    setEyeColor(blendColor(HAPPY_COLOR, HANGRY_COLOR, alpha));
+  }
 }
-
-double getLinearValueByStateLength(double startValue, double endValue, double timeRangeMs) {
-  double valueRange = endValue - startValue;
-  return (valueRange / timeRangeMs) * getTimePassedMs() + startValue;
-}
-
-Color blendColor(Color& start, Color& end, double alpha) {
-  return Color{
-    linearInterpolate(start.r, end.r, alpha),
-    linearInterpolate(start.g, end.g, alpha),
-    linearInterpolate(start.b, end.b, alpha)
-  };
-}
-
 
 uint32_t lightCalibration() {
   uint32_t sum = 0;
@@ -260,13 +287,19 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  if (state == State_T::hangry) {
-    hangryState();
-  } else if (state == State_T::chewing) {
-    chewingState();
-  } else if (state == State_T::happy) {
-    happyState();
-  } else if (state == State_T::getting_hungry) {
-    gettinghungryState();
+  switch (currentState) {
+    case State_T::hangry:
+      hangryState();
+      break;
+    case State_T::chewing:
+      chewingState();
+      break;
+    case State_T::happy:
+      happyState();
+      break;
+    case State_T::getting_hungry:
+      gettinghungryState();
+      break;
   }
+  state_loop_count++;
 }
