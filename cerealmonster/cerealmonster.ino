@@ -168,7 +168,7 @@ void gettinghungryState_entry() {
   leftEye.write(90 + 30);   // + 30);
   rightEye.write(90 - 30);  // - 30);
   eyecolor(0, 20, 0);
-  //musicPlayer.startPlayingFile("/happy.mp3");
+  musicPlayer.startPlayingFile("/grumbles.mp3");
 }
 
 int loopCount = 0;
