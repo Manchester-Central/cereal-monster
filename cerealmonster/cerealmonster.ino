@@ -167,7 +167,7 @@ void happyState() {
 void gettinghungryState_entry() {
   leftEye.write(90 + 30);   // + 30);
   rightEye.write(90 - 30);  // - 30);
-  eyecolor(20, 0, 20);
+  eyecolor(0, 20, 0);
   //musicPlayer.startPlayingFile("/happy.mp3");
 }
 
